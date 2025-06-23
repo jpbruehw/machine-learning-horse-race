@@ -17,9 +17,7 @@ MIN_EQ_PERCENT = 70
 CRSP_OBJ_CD_PREFIX = "ED"
 EXCLUDE_STRATEGIES = {"EDYH", "EDYS"}
 INDEX_FUND_DATE_CUTOFF = pd.to_datetime("2003-06-30")
-NON_INDEX_PATTERNS = [
-    "Index", "Idx", "Ix", "Indx", "NASDAQ", "Nasdaq", "Dow", "Mkt", "DJ", "S&P 500", "BARRA"
-]
+INDEX_PATTERNS = ["Index", "Idx", "Ix", "Indx", "NASDAQ", "Nasdaq", "Dow", "Mkt", "DJ", "S&P 500", "BARRA"]
 TRAIN_TEST_SPLIT_DATE = pd.to_datetime("2015-01-01")
 DROP_COLUMNS_PRE_ML = ['FUND_NAME', 'INDEX_FUND_FLAG', 'ET_FLAG', 'CRSP_OBJ_CD', 'flows', 'FIRST_OFFER_DT', 'TERMINATION_DT']
 DROP_COLUMNS_ADJUSTED_MODEL = ["alpha_FF5MOM_shifted", "ALL_EQ", "flows_wins", "flows_vola", "excess_return", "vola_return","alpha_FFC", "t_alpha_FFC", "value_added", "FUND_TNA"]
@@ -28,13 +26,16 @@ KEEP_COLUMNS_ADJUSTED_MODEL_2 = ["alpha_FF5MOM_shifted", "ALL_EQ", "flows_wins",
 # Helpers
 
 def load_and_clean_data(path: str) -> pd.DataFrame:
-    """Takes the path to the main dataset 
+    """
+    Takes the path to the main dataset and performs the necessary cleansing.
+    We filter for various criteria on the CRSP data to eventually only include
+    actively managed mutual funds.
 
     Args:
-        path (str): _description_
+        path (str): Path to locally hosted data
 
     Returns:
-        pd.DataFrame: _description_
+        pd.DataFrame: Mutual fund data with initial filtering applied
     """
     df = pd.read_csv(path, delimiter=" ", low_memory=False)
     df = df.dropna(subset=['FUND_NAME'])
@@ -48,17 +49,29 @@ def load_and_clean_data(path: str) -> pd.DataFrame:
     return df
 
 def filter_index_funds(df: pd.DataFrame) -> pd.DataFrame:
-    df_copy = df.copy()
-    df_copy['CALDT'] = pd.to_datetime(df_copy['CALDT'])
-    before_cutoff = df_copy[df_copy['CALDT'] < INDEX_FUND_DATE_CUTOFF]
-    after_cutoff = df_copy[df_copy['CALDT'] >= INDEX_FUND_DATE_CUTOFF]
+    """
+    This function is a further step in the data cleansing process to remove
+    all the remaining index funds from the full fund dataset. We do this separately from
+    the main cleansing logic when the dataset initially loads.
+
+    Args:
+        df (pd.DataFrame): The main dataframe containing all the CRSP data
+
+    Returns:
+        pd.DataFrame: Dataset further cleansed of index fund data
+    """
+    df['CALDT'] = pd.to_datetime(df['CALDT'])
+    before_cutoff = df[df['CALDT'] < INDEX_FUND_DATE_CUTOFF]
+    after_cutoff = df[df['CALDT'] >= INDEX_FUND_DATE_CUTOFF]
 
     # Filter after cutoff by INDEX_FUND_FLAG != 'D'
     after_cutoff = after_cutoff[after_cutoff.INDEX_FUND_FLAG != 'D']
 
     # Filter before cutoff by fund name patterns
     mask = pd.Series(True, index=before_cutoff.index)
-    for pattern in NON_INDEX_PATTERNS:
+    for pattern in INDEX_PATTERNS:
+        # dynamically update the boolean mask
+        # https://stackoverflow.com/questions/21237767/python-a-b-meaning
         mask &= ~before_cutoff['FUND_NAME'].str.contains(pattern, na=False, case=False)
     before_cutoff = before_cutoff[mask]
 
@@ -66,12 +79,34 @@ def filter_index_funds(df: pd.DataFrame) -> pd.DataFrame:
     return filtered_df
 
 def add_team_flags(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    This function enriches the dataset by adding an additional flag as
+    to whether the actively managed mutual fund is managed by a single
+    manager or a team of managers and what effect this has on performance.
+
+    Args:
+        df (pd.DataFrame): The full CRSP dataset
+
+    Returns:
+        pd.DataFrame: Dataset with team flag
+    """
     df['IS_TEAM'] = np.where(df['MANAGER_MSTAR'].str.contains('/', na=False), 1, 0)
     df['NOT_TEAM'] = 1 - df['IS_TEAM']
     df.drop(columns=['MANAGER_MSTAR'], inplace=True)
     return df
 
 def filter_min_aum(df: pd.DataFrame, min_aum: float = MIN_AUM) -> pd.DataFrame:
+    """
+    This function further filters the CRSP dataset to only include funds that have
+    at least MIN_AUM assets under management.
+
+    Args:
+        df (pd.DataFrame): The full CRSP dataset
+        min_aum (float, optional): The threshold for inclusion, in millions of USD. Defaults to MIN_AUM.
+
+    Returns:
+        pd.DataFrame: Filtered dataset with only relevant 
+    """
     unique_funds = df['CRSP_FUNDNO'].unique()
     filtered_funds = []
 
@@ -84,7 +119,18 @@ def filter_min_aum(df: pd.DataFrame, min_aum: float = MIN_AUM) -> pd.DataFrame:
     filtered_df = pd.concat(filtered_funds, axis=0)
     return filtered_df
 
-def prepare_ml_data(df: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+def prepare_ml_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    This function takes the filtered dataset and returns the training
+    and testing data based on the date, since we need to keep the temporal
+    nature of the data intact for the purposes of this analysis.
+
+    Args:
+        df (pd.DataFrame): The filtered CRSP dataset
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing the training and testing data
+    """
     df = df.drop(columns=DROP_COLUMNS_PRE_ML)
     df = df.sort_values('CALDT')
     df['alpha_FF5MOM_shifted'] = df.groupby('CRSP_FUNDNO')['alpha_FF5MOM'].shift(-1)
@@ -94,7 +140,17 @@ def prepare_ml_data(df: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
     test_df = df[df['CALDT'] >= TRAIN_TEST_SPLIT_DATE].drop(columns=['CALDT'])
     return train_df, test_df
 
-def plot_residuals(y_true, y_pred):
+def plot_residuals(y_true: pd.Series, y_pred: pd.Series) -> None:
+    """
+    Function to generate a probability plot of the residuals of a given model.
+
+    Args:
+        y_true (pd.Series): Series of the true alpha values for the testing set
+        y_pred (pd.Series): The model's predicted values
+    
+    Returns:
+        Doesn't return a value
+    """
     residuals = y_true - y_pred
 
     plt.figure(figsize=(10, 4))
@@ -111,13 +167,35 @@ def plot_residuals(y_true, y_pred):
     plt.tight_layout()
     plt.show()
 
-def mape(y_true, y_pred):
+def mape(y_true: pd.Series, y_pred: pd.Series) -> float:
+    """
+    Function that calculates the Mean Absolute Percentage Error (MAPE) between actual and predicted values.
+
+    Args:
+        y_true (pd.Series): Array of true target values.
+        y_pred (pd.Series): Array of predicted target values.
+
+    Returns:
+        float: The MAPE value, expressed as a decimal (e.g., 0.1 for 10%).
+    """
     return np.mean(np.abs((y_true - y_pred) / y_true))
 
-def calculate_adj_r2(r2, n, k):
+
+def calculate_adj_r2(r2: float, n: int, k: int) -> float:
+    """
+    Calculates the adjusted R-squared value.
+
+    Args:
+        r2 (float): The R-squared value.
+        n (int): The number of observations.
+        k (int): The number of independent variables.
+
+    Returns:
+        float: The adjusted R-squared value.
+    """
     return 1 - (1 - r2) * (n - 1) / (n - k - 1)
 
-# ========================== Modeling Functions ==========================
+# Model logic
 
 def train_linear_regression(x_train, y_train):
     model = LinearRegression()
