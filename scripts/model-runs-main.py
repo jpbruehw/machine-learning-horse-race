@@ -480,12 +480,3 @@ mape_lin_regression_adjusted_02 = mape(y_test_new_reg, y_pred_OLS3)
 
 #mean absolute error
 mae_lin_regression_adjusted_02 = mean_absolute_error(y_test_new_reg, y_pred_OLS3)
-
-
-
-
-
-
-
-
-
