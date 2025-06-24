@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import scipy.stats as stats
+from sklearn.base import BaseEstimator
 
 # Global vars
 DATA_PATH = "[PATH TO MAIN DATASET]"
@@ -197,12 +198,44 @@ def calculate_adj_r2(r2: float, n: int, k: int) -> float:
 
 # Model logic
 
-def train_linear_regression(x_train, y_train):
+def train_linear_regression(x_train: pd.DataFrame, y_train: pd.Series) -> LinearRegression:
+    """
+    This function creates and trains a basic linear regression model. The model 
+    is purposely untuned and left "out of the box."
+
+    Args:
+        x_train (pd.DataFrame): Training feature set.
+        y_train (pd.Series): Training target values.
+
+    Returns:
+        LinearRegression: Trained Linear Regression model.
+    """
     model = LinearRegression()
     model.fit(x_train, y_train)
     return model
 
-def evaluate_model(model, x_test, y_test):
+def evaluate_model(
+    model: BaseEstimator,
+    x_test: pd.DataFrame,
+    y_test: pd.Series
+) -> tuple[pd.Series, float, float, float, float, float]:
+    """
+    Evaluate a trained model and compute performance metrics.
+
+    Args:
+        model (BaseEstimator): A trained scikit-learn model.
+        x_test (pd.DataFrame): Test feature set.
+        y_test (pd.Series): True target values for the test set.
+
+    Returns:
+        Tuple containing:
+            - y_pred (pd.Series): Predicted values.
+            - mse (float): Mean Squared Error.
+            - r2 (float): R-squared score.
+            - adj_r2 (float): Adjusted R-squared score.
+            - mape_val (float): Mean Absolute Percentage Error.
+            - mae (float): Mean Absolute Error.
+    """
     y_pred = model.predict(x_test)
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
