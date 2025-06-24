@@ -1,3 +1,5 @@
+# Machine Learning Algorithms and Mutual Fund Alpha: A Horse Race
+
 ## Abstract
 <p>Beginning in the late 1990s and early 2000s, the study of machine learning algorithms’ ability 
 to predict financial returns came into focus. Many years later, research today now shows that 
