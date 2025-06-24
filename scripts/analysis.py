@@ -9,6 +9,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegresso
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import scipy.stats as stats
 from sklearn.base import BaseEstimator
+from typing import NoReturn
 
 # Global vars
 DATA_PATH = "[PATH TO MAIN DATASET]"
@@ -215,10 +216,10 @@ def train_linear_regression(x_train: pd.DataFrame, y_train: pd.Series) -> Linear
     return model
 
 def evaluate_model(
-    model: BaseEstimator,
-    x_test: pd.DataFrame,
-    y_test: pd.Series
-) -> tuple[pd.Series, float, float, float, float, float]:
+        model: BaseEstimator,
+        x_test: pd.DataFrame,
+        y_test: pd.Series
+    ) -> tuple[pd.Series, float, float, float, float, float]:
     """
     Evaluate a trained model and compute performance metrics.
 
@@ -244,7 +245,20 @@ def evaluate_model(
     mae = mean_absolute_error(y_test, y_pred)
     return y_pred, mse, r2, adj_r2, mape_val, mae
 
-def run_linear_regression_models(training_data, testing_data):
+def run_linear_regression_models(training_data: pd.DataFrame, testing_data: pd.DataFrame) -> NoReturn:
+    """
+    Trains and evaluates three versions of linear regression models (unadjusted and two adjusted).
+    
+    Each model is trained using subsets of the input training/testing DataFrames, and evaluated
+    using standard regression metrics: MSE, R2, Adjusted R2, MAPE, and MAE.
+
+    Args:
+        training_data (pd.DataFrame): DataFrame containing training features and target values.
+        testing_data (pd.DataFrame): DataFrame containing test features and target values.
+
+    Returns:
+        None
+    """
     print("\n===== Linear Regression Model (Unadjusted) =====")
     x_train = training_data.drop('alpha_FF5MOM_shifted', axis=1)
     y_train = training_data['alpha_FF5MOM_shifted']
@@ -290,7 +304,24 @@ def run_linear_regression_models(training_data, testing_data):
     print(f"MSE: {mse_adj2:.4f}, R2: {r2_adj2:.4f}, Adj R2: {adj_r2_adj2:.4f}, MAPE: {mape_adj2:.4f}, MAE: {mae_adj2:.4f}")
     plot_residuals(y_test_adj2, y_pred_adj2)
 
-def run_gradient_boosting(x_train, y_train, x_test, y_test):
+def run_gradient_boosting(
+        x_train: pd.DataFrame, 
+        y_train: pd.Series, 
+        x_test: pd.DataFrame, 
+        y_test: pd.Series
+    ) -> NoReturn:
+    """
+    Runs a Gradient Boosting Regressor with GridSearchCV to optimize hyperparameters.
+
+    Args:
+        x_train (pd.DataFrame): Training feature set.
+        y_train (pd.Series): Training target values.
+        x_test (pd.DataFrame): Test feature set.
+        y_test (pd.Series): Test target values.
+
+    Returns:
+        None
+    """
     print("\n===== Gradient Boosting Regressor with Hyperparameter Tuning =====")
 
     param_grid = {
@@ -316,7 +347,27 @@ def run_gradient_boosting(x_train, y_train, x_test, y_test):
     print(f"MSE: {mse:.4f}, R2: {r2:.4f}, Adj R2: {adj_r2:.4f}, MAPE: {mape_val:.4f}, MAE: {mae:.4f}")
     plot_residuals(y_test, y_pred)
 
-def run_random_forest_models(x_train, y_train, x_test, y_test):
+def run_random_forest_models(
+        x_train: pd.DataFrame, 
+        y_train: pd.Series, 
+        x_test: pd.DataFrame, 
+        y_test: pd.Series
+    ) -> NoReturn:
+    """
+    Trains and evaluates three versions of Random Forest models:
+    1. Base model with default parameters.
+    2. GridSearchCV-tuned model.
+    3. RandomizedSearchCV-tuned model.
+
+    Args:
+        x_train (pd.DataFrame): Training feature set.
+        y_train (pd.Series): Training target values.
+        x_test (pd.DataFrame): Test feature set.
+        y_test (pd.Series): Test target values.
+
+    Returns:
+        None
+    """
     print("\n===== Random Forest Regressor (Base Model) =====")
     rf_base = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1, verbose=3)
     rf_base.fit(x_train, y_train)
