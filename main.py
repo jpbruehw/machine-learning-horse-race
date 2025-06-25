@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator
 from typing import NoReturn
 
 # Global vars
-DATA_PATH = "[PATH TO MAIN DATASET]"
+DATA_PATH = "./crsp_data.txt"
 MIN_AUM = 5  # in million
 MIN_AGE_MONTHS = 35
 MIN_EQ_PERCENT = 70

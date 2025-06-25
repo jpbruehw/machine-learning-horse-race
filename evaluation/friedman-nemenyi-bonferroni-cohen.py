@@ -4,11 +4,11 @@ import scipy.stats as stats
 from scikit_posthocs import posthoc_nemenyi
 from statsmodels.stats.multitest import multipletests
 
-# ------------------------- Friedman Tests ------------------------- #
+# Friedman Tests
 
 def run_friedman_test(metric_name: str, *models: list[float], alpha: float = 0.05) -> None:
     """Run Friedman test on multiple models' performance metrics."""
-    print(f"\n===== Friedman Test: {metric_name} =====")
+    print(f"\Friedman Test: {metric_name}")
     f_value, p_value = stats.friedmanchisquare(*models)
     print("Statistic:", f_value)
     print("P-Value:", p_value)
@@ -31,7 +31,7 @@ run_friedman_test("t_alphaFF5MOM",
     [1.322e-2, 0.1558, 0.0587]
 )
 
-# ---------------------- Post-hoc & Effect Size ---------------------- #
+# Post-hoc & Effect Size
 
 model_names = ['gradient_boosting', 'random_forest_grid_cv', 'random_forest_rand_cv']
 model_metrics = pd.DataFrame({
@@ -42,13 +42,13 @@ model_metrics = pd.DataFrame({
 })
 
 # Nemenyi Post-hoc Test
-print("\n===== Nemenyi Post-Hoc Test =====")
+print("\n Nemenyi Post-Hoc Test")
 data = model_metrics.drop(columns="Model").to_numpy()
 posthoc_results = posthoc_nemenyi(data)
 print(posthoc_results)
 
 # Bonferroni-Dunn Test
-print("\n===== Bonferroni-Dunn Test =====")
+print("\n Bonferroni-Dunn Test")
 alpha = 0.05
 n_models = len(model_names)
 adjusted_alpha = alpha / (n_models * (n_models - 1) / 2)
@@ -72,7 +72,7 @@ for i in range(n_models):
         print("-----------------------------------")
         idx += 1
 
-# ---------------------- Effect Size (Cohen's d) ---------------------- #
+# Effect Size (Cohen's d)
 
 def compute_effect_size(metric_name: str, val1: float, val2: float) -> None:
     """Computes and interprets Cohen's d effect size between two values."""
